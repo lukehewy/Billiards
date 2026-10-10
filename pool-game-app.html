@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>台球轮替</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎱</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d3b2e'/><text x='50' y='72' font-size='60' text-anchor='middle'>🎱</text></svg>">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0; color: #fff;
+         background-color: #0d3b2e;
+         background-image: radial-gradient(120% 90% at 50% 0%, #147a5b 0%, #0d3b2e 55%, #07231b 100%);
+         min-height: 100vh; min-height: 100dvh;
+         padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+         display: flex; flex-direction: column; }
+  .atop { flex: none; display: flex; align-items: center; justify-content: center;
+          gap: 6px; padding: 2px 0 0; font-size: 13px; color: #9fd8c3; }
+  .atop .chip { padding: 7px 12px; border-radius: 20px; font-size: 13px;
+                border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.06);
+                color: #cfe9dd; cursor: pointer; }
+  .atop .chip.on { background-color: #ffd54a;
+                   background-image: linear-gradient(180deg,#ffe082,#ffd54a);
+                   color: #3a2c00; border-color: transparent; font-weight: bold;
+                   box-shadow: 0 2px 8px rgba(255,213,74,.35); }
+  .top { flex: none; text-align: center; padding: 10px 0 2px; }
+  .gamenum { font-size: 14px; color: #9fd8c3; letter-spacing: 3px; }
+  .gamenum b { font-size: 34px; color: #fff; margin: 0 6px; letter-spacing: 0;
+               text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .roundinfo { font-size: 12px; color: #8fc7ae; margin-top: 3px; }
+  .table { flex: 1; display: flex; align-items: stretch; justify-content: center;
+           gap: 12px; padding: 12px 0; min-height: 0; }
+  .player { flex: 1; max-width: 250px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background-color: rgba(255,255,255,.09);
+            background-image: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+            border-radius: 18px; padding: 16px 6px;
+            border: 2px solid rgba(255,255,255,.12);
+            box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+  .player.breaker { border-color: #ffd54a;
+                    background-color: rgba(255,213,74,.15);
+                    background-image: linear-gradient(180deg, rgba(255,213,74,.22), rgba(255,213,74,.08));
+                    box-shadow: 0 0 18px rgba(255,213,74,.35); }
+  .player .pn { font-size: 36px; font-weight: bold; white-space: nowrap;
+                text-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  .player .brk { font-size: 13px; color: #ffd54a; margin-top: 8px; min-height: 18px;
+                 font-weight: bold; }
+  .vs { font-size: 15px; color: #9fd8c3; flex: none; align-self: center;
+        width: 34px; height: 34px; border-radius: 50%; display: flex;
+        align-items: center; justify-content: center;
+        background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); }
+  .actions { flex: none; padding: 4px 0 0; }
+  #finish { display: block; width: 100%; padding: 16px; font-size: 21px;
+            font-weight: bold; border-radius: 16px; border: none; cursor: pointer;
+            background-color: #ffc93c;
+            background-image: linear-gradient(180deg,#ffe082,#ffc93c); color: #3a2c00;
+            box-shadow: 0 4px 14px rgba(255,201,60,.35); }
+  #finish:active { transform: scale(.98); }
+  .row2 { display: flex; gap: 8px; margin-top: 10px; }
+  .row2 button { flex: 1; padding: 11px 2px; font-size: 14px; border-radius: 12px;
+                 border: 1px solid rgba(255,255,255,.22);
+                 background: rgba(255,255,255,.07); color: #d8efe3; cursor: pointer;
+                 white-space: nowrap; }
+  .row2 button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+  <div class="atop">
+    <span>今日A位</span>
+    <span id="achips" style="display:flex;gap:6px;"></span>
+  </div>
+  <div class="top">
+    <div class="gamenum">第<b id="gnum">1</b>局</div>
+    <div class="roundinfo" id="rinfo"></div>
+  </div>
+
+  <div class="table">
+    <div class="player" id="pa">
+      <div class="pn" id="pna">老师傅</div>
+      <div class="brk" id="brka"></div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="player" id="pb">
+      <div class="pn" id="pnb">wei</div>
+      <div class="brk" id="brkb"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="finish">结束本局 → 下一局</button>
+    <div class="row2">
+      <button id="prev">↩ 误按退回</button>
+      <button id="reset">↺ 重开本局序</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var KEY = 'pool-game-app-v5';
+  var CYCLE = [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]]; // AB CD AC BD AD BC
+  // 开球分配（穷举最优）：偶数轮按此表，奇数轮取反，保证同一对阵轮流开球，
+  // 且每人每轮开 1~2 次。0=对阵中第一人开，1=第二人开。
+  var BRK = [0,1,1,0,0,0];
+  var state = { names: ['老师傅','wei','小塞','牧师'], game: 1, aShift: 0 };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && saved.game >= 1 && saved.aShift != null) {
+      state.game = saved.game;
+      state.aShift = saved.aShift % 4;
+    }
+  } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var gnum = document.getElementById('gnum');
+  var rinfo = document.getElementById('rinfo');
+  var pa = document.getElementById('pa'), pb = document.getElementById('pb');
+  var pna = document.getElementById('pna'), pnb = document.getElementById('pnb');
+  var brka = document.getElementById('brka'), brkb = document.getElementById('brkb');
+  var achips = document.getElementById('achips');
+
+  function renderChips() {
+    achips.innerHTML = '';
+    state.names.forEach(function (nm, i) {
+      var c = document.createElement('button');
+      c.className = 'chip' + (i === state.aShift ? ' on' : '');
+      c.textContent = nm;
+      c.addEventListener('click', function () {
+        if (i === state.aShift) return;
+        state.aShift = i;
+        state.game = 1;
+        save(); renderChips(); render();
+      });
+      achips.appendChild(c);
+    });
+  }
+
+  function render() {
+    var cycle = Math.floor((state.game - 1) / 6);
+    var pi = (state.game - 1) % 6;
+    var pair = CYCLE[pi];
+    var a = state.names[(pair[0] + state.aShift) % 4];
+    var b = state.names[(pair[1] + state.aShift) % 4];
+    gnum.textContent = state.game;
+    rinfo.textContent = '第' + (cycle + 1) + '轮 · 本轮第' + (pi + 1) + '/6局';
+    pna.textContent = a;
+    pnb.textContent = b;
+    // 开球：偶数轮按 BRK 表，奇数轮取反
+    var flip = (cycle % 2 === 1);
+    var aBreaks = flip ? (BRK[pi] === 1) : (BRK[pi] === 0);
+    pa.classList.toggle('breaker', aBreaks);
+    pb.classList.toggle('breaker', !aBreaks);
+    brka.textContent = aBreaks ? '🎱 开球' : '';
+    brkb.textContent = aBreaks ? '' : '🎱 开球';
+  }
+
+  document.getElementById('finish').addEventListener('click', function () {
+    state.game++;
+    save(); render();
+  });
+
+  document.getElementById('prev').addEventListener('click', function () {
+    if (state.game > 1) { state.game--; save(); render(); }
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    state.game = 1;
+    save(); render();
+  });
+
+  renderChips();
+  render();
+})();
+</script>
+</body>
+</html>
