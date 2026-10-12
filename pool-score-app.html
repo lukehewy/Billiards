@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>台球记分</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎱</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d3b2e'/><text x='50' y='72' font-size='60' text-anchor='middle'>🎱</text></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d3b2e">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0; color: #fff;
+         background-color: #0d3b2e;
+         background-image: radial-gradient(120% 90% at 50% 0%, #147a5b 0%, #0d3b2e 55%, #07231b 100%);
+         min-height: 100vh; min-height: 100dvh;
+         padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+         display: flex; flex-direction: column; }
+  .atop { flex: none; display: flex; align-items: center; justify-content: center;
+          gap: 6px; padding: 2px 0 0; font-size: 13px; color: #9fd8c3; }
+  .atop .chip { padding: 7px 12px; border-radius: 20px; font-size: 13px;
+                border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.06);
+                color: #cfe9dd; cursor: pointer; }
+  .atop .chip.on { background-color: #ffd54a;
+                   background-image: linear-gradient(180deg,#ffe082,#ffd54a);
+                   color: #3a2c00; border-color: transparent; font-weight: bold;
+                   box-shadow: 0 2px 8px rgba(255,213,74,.35); }
+  .top { flex: none; text-align: center; padding: 10px 0 2px; }
+  .gamenum { font-size: 14px; color: #9fd8c3; letter-spacing: 3px; }
+  .gamenum b { font-size: 34px; color: #fff; margin: 0 6px; letter-spacing: 0;
+               text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .roundinfo { font-size: 12px; color: #8fc7ae; margin-top: 3px; }
+  .winhint { text-align: center; font-size: 15px; color: #ffd54a; margin-top: 8px;
+             font-weight: bold; }
+  .table { flex: 1; display: flex; align-items: stretch; justify-content: center;
+           gap: 12px; padding: 12px 0; min-height: 0; }
+  .player { flex: 1; max-width: 250px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background-color: rgba(255,255,255,.09);
+            background-image: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+            border-radius: 18px; padding: 16px 6px;
+            border: 2px solid rgba(255,255,255,.12);
+            box-shadow: 0 4px 16px rgba(0,0,0,.25);
+            cursor: pointer; user-select: none; }
+  .player:active { transform: scale(.97); }
+  .player.breaker { border-color: #ffd54a;
+                    background-color: rgba(255,213,74,.15);
+                    background-image: linear-gradient(180deg, rgba(255,213,74,.22), rgba(255,213,74,.08));
+                    box-shadow: 0 0 18px rgba(255,213,74,.35); }
+  .player .pn { font-size: 36px; font-weight: bold; white-space: nowrap;
+                text-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  .player .brk { font-size: 13px; color: #ffd54a; margin-top: 8px; min-height: 18px;
+                 font-weight: bold; }
+  .player .winbtn { margin-top: 10px; font-size: 14px; color: #3a2c00; font-weight: bold;
+                    background: #ffd54a; border-radius: 12px; padding: 8px 18px; }
+  .vs { font-size: 15px; color: #9fd8c3; flex: none; align-self: center;
+        width: 34px; height: 34px; border-radius: 50%; display: flex;
+        align-items: center; justify-content: center;
+        background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); }
+  .actions { flex: none; padding: 4px 0 0; }
+  #skip { display: block; width: 100%; padding: 13px; font-size: 16px;
+          border-radius: 14px; border: 1px solid rgba(255,255,255,.22);
+          background: rgba(255,255,255,.07); color: #d8efe3; cursor: pointer; }
+  #skip:active { transform: scale(.98); }
+  .row2 { display: flex; gap: 8px; margin-top: 10px; }
+  .row2 button { flex: 1; padding: 11px 2px; font-size: 14px; border-radius: 12px;
+                 border: 1px solid rgba(255,255,255,.22);
+                 background: rgba(255,255,255,.07); color: #d8efe3; cursor: pointer;
+                 white-space: nowrap; }
+  .row2 button:active { transform: scale(.97); }
+  #installBtn { display: none; }
+  #installBtn.show { display: block; }
+  /* 统计弹窗 */
+  #statModal { display: none; position: fixed; inset: 0; z-index: 50;
+               background: rgba(0,0,0,.6); padding: 24px 16px; overflow-y: auto; }
+  #statModal.show { display: block; }
+  .statcard { background: #0f4433; border-radius: 18px; padding: 18px 16px;
+              max-width: 480px; margin: 0 auto; border: 1px solid rgba(255,255,255,.15); }
+  .statcard h3 { margin: 0 0 4px; font-size: 19px; text-align: center; }
+  .statcard .total { text-align: center; color: #9fd8c3; font-size: 14px; margin-bottom: 12px; }
+  .statcard table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .statcard th, .statcard td { padding: 8px 6px; text-align: center;
+                               border-bottom: 1px solid rgba(255,255,255,.1); }
+  .statcard th { color: #9fd8c3; font-weight: normal; font-size: 13px; }
+  .statcard h4 { margin: 16px 0 6px; font-size: 15px; color: #ffd54a; }
+  #statClose { display: block; width: 100%; margin-top: 16px; padding: 13px;
+               font-size: 16px; font-weight: bold; border-radius: 14px; border: none;
+               background: #ffd54a; color: #3a2c00; cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="atop">
+    <span>今日A位</span>
+    <span id="achips" style="display:flex;gap:6px;"></span>
+  </div>
+  <div class="top">
+    <div class="gamenum">第<b id="gnum">1</b>局</div>
+    <div class="roundinfo" id="rinfo"></div>
+    <div class="winhint">👆 点赢球的人记分</div>
+  </div>
+
+  <div class="table">
+    <div class="player" id="pa">
+      <div class="pn" id="pna">老师傅</div>
+      <div class="brk" id="brka"></div>
+      <div class="winbtn">赢了点我</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="player" id="pb">
+      <div class="pn" id="pnb">wei</div>
+      <div class="brk" id="brkb"></div>
+      <div class="winbtn">赢了点我</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="skip">不记胜负 → 下一局</button>
+    <div class="row2">
+      <button id="prev">↩ 误按退回</button>
+      <button id="stats">📊 统计</button>
+      <button id="reset">↺ 重开清零</button>
+      <button id="installBtn">📲 装到桌面</button>
+    </div>
+  </div>
+
+  <div id="statModal">
+    <div class="statcard">
+      <h3>📊 本场统计</h3>
+      <div class="total" id="statTotal"></div>
+      <h4>个人战绩</h4>
+      <table id="statPerson"></table>
+      <h4>对阵交手</h4>
+      <table id="statPair"></table>
+      <button id="statClose">关闭</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var KEY = 'pool-score-app-v1';
+  var CYCLE = [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]]; // AB CD AC BD AD BC
+  var BRK = [0,1,1,0,0,0];
+  var state = { names: ['老师傅','wei','小塞','牧师'], aShift: 0, results: [] };
+  // results: [{a:'老师傅', b:'wei', w:'老师傅'|'wei'|null}]  w=null 表示不记胜负
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && saved.aShift != null && saved.results) {
+      state.aShift = saved.aShift % 4;
+      state.results = saved.results;
+    }
+  } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function gameNo() { return state.results.length + 1; }
+  function curPair() {
+    var pi = (gameNo() - 1) % 6;
+    var pair = CYCLE[pi];
+    return {
+      a: state.names[(pair[0] + state.aShift) % 4],
+      b: state.names[(pair[1] + state.aShift) % 4],
+      pi: pi
+    };
+  }
+
+  var gnum = document.getElementById('gnum');
+  var rinfo = document.getElementById('rinfo');
+  var pa = document.getElementById('pa'), pb = document.getElementById('pb');
+  var pna = document.getElementById('pna'), pnb = document.getElementById('pnb');
+  var brka = document.getElementById('brka'), brkb = document.getElementById('brkb');
+  var achips = document.getElementById('achips');
+
+  function renderChips() {
+    achips.innerHTML = '';
+    state.names.forEach(function (nm, i) {
+      var c = document.createElement('button');
+      c.className = 'chip' + (i === state.aShift ? ' on' : '');
+      c.textContent = nm;
+      c.addEventListener('click', function () {
+        if (i === state.aShift) return;
+        state.aShift = i;
+        state.results = [];
+        save(); renderChips(); render();
+      });
+      achips.appendChild(c);
+    });
+  }
+
+  function render() {
+    var g = gameNo();
+    var cycle = Math.floor((g - 1) / 6);
+    var cp = curPair();
+    gnum.textContent = g;
+    rinfo.textContent = '第' + (cycle + 1) + '轮 · 本轮第' + (cp.pi + 1) + '/6局 · 已记' + state.results.length + '局';
+    pna.textContent = cp.a;
+    pnb.textContent = cp.b;
+    var flip = (cycle % 2 === 1);
+    var aBreaks = flip ? (BRK[cp.pi] === 1) : (BRK[cp.pi] === 0);
+    pa.classList.toggle('breaker', aBreaks);
+    pb.classList.toggle('breaker', !aBreaks);
+    brka.textContent = aBreaks ? '🎱 开球' : '';
+    brkb.textContent = aBreaks ? '' : '🎱 开球';
+  }
+
+  function finishGame(winner) {
+    var cp = curPair();
+    state.results.push({ a: cp.a, b: cp.b, w: winner });
+    save(); render();
+  }
+
+  pa.addEventListener('click', function () { finishGame(curPair().a); });
+  pb.addEventListener('click', function () { finishGame(curPair().b); });
+
+  document.getElementById('skip').addEventListener('click', function () {
+    finishGame(null);
+  });
+
+  document.getElementById('prev').addEventListener('click', function () {
+    if (state.results.length > 0) { state.results.pop(); save(); render(); }
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    if (confirm('清零重开？本场所有记分都会清空。')) {
+      state.results = [];
+      save(); render();
+    }
+  });
+
+  // ---- 统计 ----
+  var statModal = document.getElementById('statModal');
+  document.getElementById('stats').addEventListener('click', function () {
+    var res = state.results;
+    document.getElementById('statTotal').textContent =
+      '一共打了 ' + res.length + ' 局' + (res.length ? '' : '（还没有记分）');
+
+    // 个人战绩
+    var html = '<tr><th>姓名</th><th>出场</th><th>胜局</th><th>胜率</th></tr>';
+    state.names.forEach(function (nm) {
+      var play = 0, win = 0;
+      res.forEach(function (r) {
+        if (r.a === nm || r.b === nm) play++;
+        if (r.w === nm) win++;
+      });
+      var rate = play ? Math.round(win / play * 100) + '%' : '—';
+      html += '<tr><td>' + nm + '</td><td>' + play + '</td><td>' + win + '</td><td>' + rate + '</td></tr>';
+    });
+    document.getElementById('statPerson').innerHTML = html;
+
+    // 对阵交手（按六种配对）
+    html = '<tr><th>对阵</th><th>局数</th><th>胜负</th></tr>';
+    CYCLE.forEach(function (pr) {
+      var x = state.names[(pr[0] + state.aShift) % 4];
+      var y = state.names[(pr[1] + state.aShift) % 4];
+      var n = 0, wx = 0, wy = 0;
+      res.forEach(function (r) {
+        if ((r.a === x && r.b === y) || (r.a === y && r.b === x)) {
+          n++;
+          if (r.w === x) wx++;
+          else if (r.w === y) wy++;
+        }
+      });
+      html += '<tr><td>' + x + ' vs ' + y + '</td><td>' + n + '</td><td>' + wx + ' - ' + wy + '</td></tr>';
+    });
+    document.getElementById('statPair').innerHTML = html;
+
+    statModal.classList.add('show');
+  });
+  document.getElementById('statClose').addEventListener('click', function () {
+    statModal.classList.remove('show');
+  });
+  statModal.addEventListener('click', function (e) {
+    if (e.target === statModal) statModal.classList.remove('show');
+  });
+
+  // ---- 装到桌面（应用内安装按钮）----
+  var installBtn = document.getElementById('installBtn');
+  var deferredPrompt = null;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                     window.navigator.standalone === true;
+
+  function showInstall() {
+    if (!isStandalone) installBtn.classList.add('show');
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstall();
+  });
+  if (isIOS) showInstall();
+  window.addEventListener('appinstalled', function () {
+    installBtn.classList.remove('show');
+    deferredPrompt = null;
+  });
+  installBtn.addEventListener('click', function () {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+    } else if (isIOS) {
+      alert('点浏览器底部的"分享"按钮，再选"添加到主屏幕"，下次直接点图标打开。');
+    } else {
+      alert('点浏览器右上角 ⋮ 菜单，选"添加到主屏幕"即可。');
+    }
+  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+
+  renderChips();
+  render();
+})();
+</script>
+</body>
+</html>
