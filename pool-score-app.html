@@ -235,9 +235,13 @@
   // ---- 统计 ----
   var statModal = document.getElementById('statModal');
   document.getElementById('stats').addEventListener('click', function () {
-    var res = state.results;
+    // 不记胜负的局不计入统计
+    var res = state.results.filter(function (r) { return r.w; });
+    var skipped = state.results.length - res.length;
     document.getElementById('statTotal').textContent =
-      '一共打了 ' + res.length + ' 局' + (res.length ? '' : '（还没有记分）');
+      '一共打了 ' + state.results.length + ' 局' +
+      (skipped ? '（其中 ' + skipped + ' 局不记胜负，未计入统计）' : '') +
+      (state.results.length ? '' : '（还没有记分）');
 
     // 个人战绩
     var html = '<tr><th>姓名</th><th>出场</th><th>胜局</th><th>胜率</th></tr>';
