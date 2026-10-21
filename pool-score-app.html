@@ -201,10 +201,11 @@
       c.className = 'chip' + (i === state.aShift ? ' on' : '');
       c.textContent = nm;
       c.addEventListener('click', function () {
-        if (i === state.aShift) return;
-        // 已有记分时换A位必须先确认，避免误点把本场记录悄悄清掉（2026-10-20 晚出过事）
+        // 选A位＝开新一场：只要还有记录（包括上次没清的），先确认清零再开始。
+        // 同一个A位也要能触发清零——昨晚就是A位没换人、旧记录叠加，把统计弄错了（2026-10-21 用户纠正）。
+        if (i === state.aShift && state.results.length === 0) return;
         if (state.results.length > 0 &&
-            !confirm('本场已记 ' + state.results.length + ' 局。换A位将清零重开，确定？')) return;
+            !confirm('已有 ' + state.results.length + ' 局记录。选A位开新一场将清零这些记录，确定？')) return;
         state.aShift = i;
         state.results = [];
         save(); renderChips(); render();
