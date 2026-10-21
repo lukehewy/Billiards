@@ -36,6 +36,9 @@
   .roundinfo { font-size: 12px; color: #8fc7ae; margin-top: 3px; }
   .winhint { text-align: center; font-size: 15px; color: #ffd54a; margin-top: 8px;
              font-weight: bold; }
+  .nextinfo { flex: none; text-align: center; font-size: 15px; color: #cfe9dd;
+              padding: 0 0 10px; }
+  .nextinfo b { color: #ffd54a; }
   .table { flex: 1; display: flex; align-items: stretch; justify-content: center;
            gap: 12px; padding: 12px 0; min-height: 0; }
   .player { flex: 1; max-width: 250px; display: flex; flex-direction: column;
@@ -117,6 +120,8 @@
     </div>
   </div>
 
+  <div class="nextinfo" id="ninfo"></div>
+
   <div class="actions">
     <button id="skip">不记胜负 → 下一局</button>
     <div class="row2">
@@ -175,6 +180,19 @@
   var pna = document.getElementById('pna'), pnb = document.getElementById('pnb');
   var brka = document.getElementById('brka'), brkb = document.getElementById('brkb');
   var achips = document.getElementById('achips');
+  var ninfo = document.getElementById('ninfo');
+
+  // 任意一局（按局号）的对阵与开球人
+  function pairFor(n) {
+    var pi = (n - 1) % 6;
+    var pair = CYCLE[pi];
+    var a = state.names[(pair[0] + state.aShift) % 4];
+    var b = state.names[(pair[1] + state.aShift) % 4];
+    var cycle = Math.floor((n - 1) / 6);
+    var flip = (cycle % 2 === 1);
+    var aBreaks = flip ? (BRK[pi] === 1) : (BRK[pi] === 0);
+    return { a: a, b: b, breaker: aBreaks ? a : b };
+  }
 
   function renderChips() {
     achips.innerHTML = '';
@@ -184,6 +202,9 @@
       c.textContent = nm;
       c.addEventListener('click', function () {
         if (i === state.aShift) return;
+        // 已有记分时换A位必须先确认，避免误点把本场记录悄悄清掉（2026-10-20 晚出过事）
+        if (state.results.length > 0 &&
+            !confirm('本场已记 ' + state.results.length + ' 局。换A位将清零重开，确定？')) return;
         state.aShift = i;
         state.results = [];
         save(); renderChips(); render();
@@ -206,6 +227,8 @@
     pb.classList.toggle('breaker', !aBreaks);
     brka.textContent = aBreaks ? '🎱 开球' : '';
     brkb.textContent = aBreaks ? '' : '🎱 开球';
+    var nx = pairFor(g + 1);
+    ninfo.innerHTML = '下一局：' + nx.a + ' vs ' + nx.b + ' · <b>🎱 ' + nx.breaker + ' 开球</b>';
   }
 
   function finishGame(winner) {
