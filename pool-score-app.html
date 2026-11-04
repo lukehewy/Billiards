@@ -93,6 +93,18 @@
   #statClose { display: block; width: 100%; margin-top: 16px; padding: 13px;
                font-size: 16px; font-weight: bold; border-radius: 14px; border: none;
                background: #ffd54a; color: #3a2c00; cursor: pointer; }
+  /* 选第一局对手弹窗 */
+  #firstModal { display: none; position: fixed; inset: 0; z-index: 50;
+               background: rgba(0,0,0,.6); padding: 24px 16px; overflow-y: auto; }
+  #firstModal.show { display: block; }
+  .oppbtn { display: block; width: 100%; margin-top: 10px; padding: 16px;
+            font-size: 19px; font-weight: bold; border-radius: 14px; border: none;
+            background: #ffd54a; color: #3a2c00; cursor: pointer; }
+  .oppbtn:active { transform: scale(.98); }
+  #firstCancel { display: block; width: 100%; margin-top: 12px; padding: 12px;
+                 font-size: 15px; border-radius: 14px;
+                 border: 1px solid rgba(255,255,255,.25);
+                 background: rgba(255,255,255,.08); color: #d8efe3; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -144,18 +156,29 @@
     </div>
   </div>
 
+  <div id="firstModal">
+    <div class="statcard">
+      <h3 id="firstTitle">第一局对阵</h3>
+      <div class="total">点一位，第一局就这么开打，之后照常轮替。</div>
+      <div id="firstBtns"></div>
+      <button id="firstCancel">取消</button>
+    </div>
+  </div>
+
 <script>
 (function () {
   var KEY = 'pool-score-app-v1';
   var CYCLE = [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]]; // AB CD AC BD AD BC
   var BRK = [0,1,1,0,0,0];
-  var state = { names: ['老师傅','wei','小塞','牧师'], aShift: 0, results: [] };
+  var state = { names: ['老师傅','wei','小塞','牧师'], aShift: 0, pShift: 0, results: [] };
   // results: [{a:'老师傅', b:'wei', w:'老师傅'|'wei'|null}]  w=null 表示不记胜负
+  // pShift: 对阵表旋转偏移。选A位时可自选第一局对手，对阵表就从那一局起排，后面照常轮替（2026-11-04 何勇要求）
 
   try {
     var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (saved && saved.aShift != null && saved.results) {
       state.aShift = saved.aShift % 4;
+      state.pShift = (saved.pShift || 0) % 6;
       state.results = saved.results;
     }
   } catch (e) {}
@@ -165,13 +188,8 @@
   }
   function gameNo() { return state.results.length + 1; }
   function curPair() {
-    var pi = (gameNo() - 1) % 6;
-    var pair = CYCLE[pi];
-    return {
-      a: state.names[(pair[0] + state.aShift) % 4],
-      b: state.names[(pair[1] + state.aShift) % 4],
-      pi: pi
-    };
+    var pf = pairFor(gameNo());
+    return { a: pf.a, b: pf.b, pi: pf.pos };
   }
 
   var gnum = document.getElementById('gnum');
@@ -183,16 +201,63 @@
   var ninfo = document.getElementById('ninfo');
 
   // 任意一局（按局号）的对阵与开球人
+  // idx 是对阵在 CYCLE 里的编号（开球 BRK 跟对阵走）；pos 是本轮第几局（只用于显示）
   function pairFor(n) {
-    var pi = (n - 1) % 6;
-    var pair = CYCLE[pi];
+    var pos = (n - 1) % 6;
+    var idx = (pos + state.pShift) % 6;
+    var pair = CYCLE[idx];
     var a = state.names[(pair[0] + state.aShift) % 4];
     var b = state.names[(pair[1] + state.aShift) % 4];
     var cycle = Math.floor((n - 1) / 6);
     var flip = (cycle % 2 === 1);
-    var aBreaks = flip ? (BRK[pi] === 1) : (BRK[pi] === 0);
-    return { a: a, b: b, breaker: aBreaks ? a : b };
+    var aBreaks = flip ? (BRK[idx] === 1) : (BRK[idx] === 0);
+    return { a: a, b: b, breaker: aBreaks ? a : b, pos: pos };
   }
+
+  // ---- 选第一局对手 ----
+  var firstModal = document.getElementById('firstModal');
+  var firstTitle = document.getElementById('firstTitle');
+  var firstBtns = document.getElementById('firstBtns');
+
+  // A位（相对0）对相对 rel 的那场，在 CYCLE 里排第几
+  function pShiftForOpp(rel) {
+    for (var k = 0; k < 6; k++) {
+      var pr = CYCLE[k];
+      if ((pr[0] === 0 && pr[1] === rel) || (pr[0] === rel && pr[1] === 0)) return k;
+    }
+    return 0;
+  }
+
+  function openFirstChooser(i) {
+    var aName = state.names[i];
+    firstTitle.textContent = '第一局：' + aName + ' 先和谁打？';
+    firstBtns.innerHTML = '';
+    [1, 2, 3].forEach(function (rel) {
+      var oppIdx = (i + rel) % 4;
+      var btn = document.createElement('button');
+      btn.className = 'oppbtn';
+      btn.textContent = aName + ' vs ' + state.names[oppIdx] + (rel === 1 ? '（原来的首局）' : '');
+      btn.addEventListener('click', function () {
+        firstModal.classList.remove('show');
+        // 选A位＝开新一场：只要还有记录（包括上次没清的），先确认清零再开始。
+        // 同一个A位也要能触发清零——昨晚就是A位没换人、旧记录叠加，把统计弄错了（2026-10-21 用户纠正）。
+        if (state.results.length > 0 &&
+            !confirm('已有 ' + state.results.length + ' 局记录。选A位开新一场将清零这些记录，确定？')) return;
+        state.aShift = i;
+        state.pShift = pShiftForOpp(rel);
+        state.results = [];
+        save(); renderChips(); render();
+      });
+      firstBtns.appendChild(btn);
+    });
+    firstModal.classList.add('show');
+  }
+  document.getElementById('firstCancel').addEventListener('click', function () {
+    firstModal.classList.remove('show');
+  });
+  firstModal.addEventListener('click', function (e) {
+    if (e.target === firstModal) firstModal.classList.remove('show');
+  });
 
   function renderChips() {
     achips.innerHTML = '';
@@ -200,16 +265,7 @@
       var c = document.createElement('button');
       c.className = 'chip' + (i === state.aShift ? ' on' : '');
       c.textContent = nm;
-      c.addEventListener('click', function () {
-        // 选A位＝开新一场：只要还有记录（包括上次没清的），先确认清零再开始。
-        // 同一个A位也要能触发清零——昨晚就是A位没换人、旧记录叠加，把统计弄错了（2026-10-21 用户纠正）。
-        if (i === state.aShift && state.results.length === 0) return;
-        if (state.results.length > 0 &&
-            !confirm('已有 ' + state.results.length + ' 局记录。选A位开新一场将清零这些记录，确定？')) return;
-        state.aShift = i;
-        state.results = [];
-        save(); renderChips(); render();
-      });
+      c.addEventListener('click', function () { openFirstChooser(i); });
       achips.appendChild(c);
     });
   }
@@ -217,13 +273,12 @@
   function render() {
     var g = gameNo();
     var cycle = Math.floor((g - 1) / 6);
-    var cp = curPair();
+    var pf = pairFor(g);
     gnum.textContent = g;
-    rinfo.textContent = '第' + (cycle + 1) + '轮 · 本轮第' + (cp.pi + 1) + '/6局 · 已记' + state.results.length + '局';
-    pna.textContent = cp.a;
-    pnb.textContent = cp.b;
-    var flip = (cycle % 2 === 1);
-    var aBreaks = flip ? (BRK[cp.pi] === 1) : (BRK[cp.pi] === 0);
+    rinfo.textContent = '第' + (cycle + 1) + '轮 · 本轮第' + (pf.pos + 1) + '/6局 · 已记' + state.results.length + '局';
+    pna.textContent = pf.a;
+    pnb.textContent = pf.b;
+    var aBreaks = (pf.breaker === pf.a);
     pa.classList.toggle('breaker', aBreaks);
     pb.classList.toggle('breaker', !aBreaks);
     brka.textContent = aBreaks ? '🎱 开球' : '';
